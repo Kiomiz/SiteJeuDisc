@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Remove-Item -Recurse -Force lib, app/collection, app/deck, app/fight, app/shop, app/components, APP.MD -ErrorAction SilentlyContinue)",
+      "Bash(Write-Host \"Done\")"
+    ]
+  }
+}

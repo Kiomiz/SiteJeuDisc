@@ -1,0 +1,32 @@
+QUIZZ TEST
+
+1-->Quelle est la capitale du Canada ?
+2-->Qui a peint La Joconde ?
+3-->Quel instrument possède 88 touches ?
+4-->En quelle année a commencé la Première Guerre mondiale ?
+5-->Quel est le plus grand océan du monde ?
+6-->Qui a écrit Les Misérables ?
+7-->Quel élément chimique a pour symbole “O” ?
+8-->Quelle planète est surnommée la planète rouge ?
+9-->Combien y a-t-il de continents sur Terre ?
+10-->Qui était le premier président des États-Unis ?
+11-->Quelle langue est parlée au Brésil ?
+12-->Quel est le plus long fleuve du monde ?
+13-->Dans quel pays se trouvent les pyramides de Gizeh ?
+14-->Quel est le plus grand mammifère marin ?
+15-->Qui a découvert la pénicilline ?
+16-->Quel pays a remporté la Coupe du monde 2018 ?
+17-->Combien de joueurs y a-t-il dans une équipe de football sur le terrain ?
+18-->Quelle est la monnaie du Japon ?
+19-->Qui a composé La Flûte enchantée ?
+20-->Quelle est la formule chimique de l’eau ?
+21-->Quel désert couvre une grande partie du nord de l’Afrique ?
+22-->Quel est le plus haut sommet du monde ?
+23-->Qui a écrit Harry Potter ?
+24-->Quel est l’organe principal du système respiratoire ?
+25-->Quelle ville est surnommée “la Ville Lumière” ?
+26-->Quel gaz les plantes absorbent-elles principalement ?
+27-->Combien de côtés possède un hexagone ?
+28-->Qui était Napoléon Bonaparte ?
+29-->Quel pays est célèbre pour les sushis ?
+30-->Quelle est la capitale de l’Australie ?
