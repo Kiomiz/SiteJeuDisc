@@ -142,23 +142,17 @@ export const setHost = mutation({
 export const deleteWeek = mutation({
   args: { weekId: v.id('weeks') },
   handler: async (ctx, args) => {
-    const answers = await ctx.db
-      .query('answers')
-      .withIndex('by_week', (q) => q.eq('weekId', args.weekId))
-      .collect()
-    for (const a of answers) await ctx.db.delete(a._id)
+    const [answers, questions, scores] = await Promise.all([
+      ctx.db.query('answers').withIndex('by_week', (q) => q.eq('weekId', args.weekId)).collect(),
+      ctx.db.query('questions').withIndex('by_week', (q) => q.eq('weekId', args.weekId)).collect(),
+      ctx.db.query('scores').withIndex('by_week', (q) => q.eq('weekId', args.weekId)).collect(),
+    ])
 
-    const questions = await ctx.db
-      .query('questions')
-      .withIndex('by_week', (q) => q.eq('weekId', args.weekId))
-      .collect()
-    for (const q of questions) await ctx.db.delete(q._id)
-
-    const scores = await ctx.db
-      .query('scores')
-      .withIndex('by_week', (q) => q.eq('weekId', args.weekId))
-      .collect()
-    for (const s of scores) await ctx.db.delete(s._id)
+    await Promise.all([
+      ...answers.map((a) => ctx.db.delete(a._id)),
+      ...questions.map((q) => ctx.db.delete(q._id)),
+      ...scores.map((s) => ctx.db.delete(s._id)),
+    ])
 
     await ctx.db.delete(args.weekId)
   },

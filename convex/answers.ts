@@ -1,43 +1,6 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
-export const saveDraft = mutation({
-  args: {
-    playerId: v.id('players'),
-    weekId: v.id('weeks'),
-    questionNumber: v.number(),
-    text: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const week = await ctx.db.get(args.weekId)
-    if (!week || week.phase !== 'question') return null
-
-    const currentQuestionNumber = week.shuffledOrder?.[week.currentQuestionIndex ?? 0]
-    if (currentQuestionNumber !== args.questionNumber) return null
-
-    const existing = await ctx.db
-      .query('answers')
-      .withIndex('by_week_question', (q) =>
-        q.eq('weekId', args.weekId).eq('questionNumber', args.questionNumber),
-      )
-      .filter((q) => q.eq(q.field('playerId'), args.playerId))
-      .first()
-
-    if (existing) {
-      await ctx.db.patch(existing._id, { text: args.text, confirmed: false })
-      return existing._id
-    }
-
-    return await ctx.db.insert('answers', {
-      playerId: args.playerId,
-      weekId: args.weekId,
-      questionNumber: args.questionNumber,
-      text: args.text,
-      confirmed: false,
-    })
-  },
-})
-
 export const submit = mutation({
   args: {
     playerId: v.id('players'),
@@ -65,7 +28,7 @@ export const submit = mutation({
       .first()
 
     if (existing) {
-      await ctx.db.patch(existing._id, { text: args.text, confirmed: true })
+      await ctx.db.patch(existing._id, { text: args.text })
       return existing._id
     }
 
@@ -74,7 +37,6 @@ export const submit = mutation({
       weekId: args.weekId,
       questionNumber: args.questionNumber,
       text: args.text,
-      confirmed: true,
     })
   },
 })

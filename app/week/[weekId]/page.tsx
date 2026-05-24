@@ -15,6 +15,8 @@ export default function WeekPage({ params }: { params: Promise<{ weekId: string 
 
   const [playerId, setPlayerId] = useState<Id<'players'> | null>(null)
   const [answerText, setAnswerText] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
@@ -26,7 +28,7 @@ export default function WeekPage({ params }: { params: Promise<{ weekId: string 
   const player = useQuery(api.players.get, playerId ? { playerId } : 'skip')
   const allPlayers = useQuery(api.players.list)
   const weekScores = useQuery(api.scores.byWeek, { weekId: docId })
-  const saveDraftMutation = useMutation(api.answers.saveDraft)
+  const submitAnswer = useMutation(api.answers.submit)
 
   const currentQuestionNumber =
     week?.shuffledOrder?.[week.currentQuestionIndex ?? 0]
@@ -56,26 +58,34 @@ export default function WeekPage({ params }: { params: Promise<{ weekId: string 
   // Reset input when question changes
   useEffect(() => {
     setAnswerText('')
+    setSubmitted(false)
+    setSubmitError('')
   }, [currentQuestionNumber])
 
   // Pre-fill if player already answered
   useEffect(() => {
-    if (myAnswer?.text) setAnswerText(myAnswer.text)
+    if (myAnswer?.text) {
+      setAnswerText(myAnswer.text)
+      setSubmitted(true)
+    }
   }, [myAnswer?.text])
 
-  // Save draft in real-time as player types
-  useEffect(() => {
-    if (!playerId || currentQuestionNumber === undefined || !answerText.trim()) return
-    const id = setTimeout(() => {
-      saveDraftMutation({
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!playerId || !answerText.trim() || currentQuestionNumber === undefined) return
+    setSubmitError('')
+    try {
+      await submitAnswer({
         playerId,
         weekId: docId,
         questionNumber: currentQuestionNumber,
-        text: answerText,
-      }).catch(() => {})
-    }, 150)
-    return () => clearTimeout(id)
-  }, [answerText, playerId, currentQuestionNumber, docId, saveDraftMutation])
+        text: answerText.trim(),
+      })
+      setSubmitted(true)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Erreur')
+    }
+  }
 
   // Loading
   if (week === undefined || questions === undefined) {
@@ -201,19 +211,29 @@ export default function WeekPage({ params }: { params: Promise<{ weekId: string 
               {currentQuestion.text}
             </p>
 
-            <div className="flex flex-col gap-2">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <input
                 type="text"
                 value={answerText}
-                onChange={(e) => setAnswerText(e.target.value)}
+                onChange={(e) => { setAnswerText(e.target.value); setSubmitted(false) }}
                 placeholder="Ta réponse…"
                 autoComplete="off"
                 className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white text-base focus:outline-none focus:border-violet-500 transition-colors"
               />
-              <p className="text-xs text-gray-600 text-right">
-                {answerText.trim() ? '✓ sauvegardé automatiquement' : 'tape ta réponse ci-dessus'}
-              </p>
-            </div>
+              {submitError && <p className="text-red-400 text-sm">{submitError}</p>}
+              <motion.button
+                type="submit"
+                disabled={!answerText.trim()}
+                whileTap={{ scale: 0.97 }}
+                className={`w-full py-3 rounded-xl font-bold text-base transition-colors ${
+                  submitted
+                    ? 'bg-green-700 border border-green-600 text-green-200'
+                    : 'bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white'
+                }`}
+              >
+                {submitted ? '✓ Réponse envoyée — modifier ?' : 'Valider'}
+              </motion.button>
+            </form>
           </motion.div>
         ) : (
           <motion.p key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
