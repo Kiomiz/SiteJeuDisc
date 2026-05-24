@@ -4,14 +4,25 @@ import { v } from 'convex/values'
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query('players').collect()
+    const players = await ctx.db.query('players').collect()
+    return await Promise.all(
+      players.map(async (p) => ({
+        ...p,
+        photoUrl: p.photoStorageId ? await ctx.storage.getUrl(p.photoStorageId) : null,
+      })),
+    )
   },
 })
 
 export const get = query({
   args: { playerId: v.id('players') },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.playerId)
+    const p = await ctx.db.get(args.playerId)
+    if (!p) return null
+    return {
+      ...p,
+      photoUrl: p.photoStorageId ? await ctx.storage.getUrl(p.photoStorageId) : null,
+    }
   },
 })
 

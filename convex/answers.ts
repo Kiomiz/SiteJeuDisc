@@ -1,6 +1,43 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
+export const saveDraft = mutation({
+  args: {
+    playerId: v.id('players'),
+    weekId: v.id('weeks'),
+    questionNumber: v.number(),
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const week = await ctx.db.get(args.weekId)
+    if (!week || week.phase !== 'question') return null
+
+    const currentQuestionNumber = week.shuffledOrder?.[week.currentQuestionIndex ?? 0]
+    if (currentQuestionNumber !== args.questionNumber) return null
+
+    const existing = await ctx.db
+      .query('answers')
+      .withIndex('by_week_question', (q) =>
+        q.eq('weekId', args.weekId).eq('questionNumber', args.questionNumber),
+      )
+      .filter((q) => q.eq(q.field('playerId'), args.playerId))
+      .first()
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { text: args.text, confirmed: false })
+      return existing._id
+    }
+
+    return await ctx.db.insert('answers', {
+      playerId: args.playerId,
+      weekId: args.weekId,
+      questionNumber: args.questionNumber,
+      text: args.text,
+      confirmed: false,
+    })
+  },
+})
+
 export const submit = mutation({
   args: {
     playerId: v.id('players'),
@@ -28,7 +65,7 @@ export const submit = mutation({
       .first()
 
     if (existing) {
-      await ctx.db.patch(existing._id, { text: args.text })
+      await ctx.db.patch(existing._id, { text: args.text, confirmed: true })
       return existing._id
     }
 
@@ -37,6 +74,7 @@ export const submit = mutation({
       weekId: args.weekId,
       questionNumber: args.questionNumber,
       text: args.text,
+      confirmed: true,
     })
   },
 })
@@ -51,10 +89,44 @@ export const listByQuestion = query({
       )
       .collect()
 
-    const players = await ctx.db.query('players').collect()
-    const playerMap = Object.fromEntries(players.map((p) => [p._id, p]))
+    const playersRaw = await ctx.db.query('players').collect()
+    const playersWithUrl = await Promise.all(
+      playersRaw.map(async (p) => ({
+        ...p,
+        photoUrl: p.photoStorageId ? await ctx.storage.getUrl(p.photoStorageId) : null,
+      })),
+    )
+    const playerMap = Object.fromEntries(playersWithUrl.map((p) => [p._id, p]))
 
     return answers.map((a) => ({ ...a, player: playerMap[a.playerId] }))
+  },
+})
+
+export const listByCorrectionBlock = query({
+  args: {
+    weekId: v.id('weeks'),
+    questionNumbers: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    if (args.questionNumbers.length === 0) return []
+
+    const allAnswers = await ctx.db
+      .query('answers')
+      .withIndex('by_week', (q) => q.eq('weekId', args.weekId))
+      .collect()
+
+    const filtered = allAnswers.filter((a) => args.questionNumbers.includes(a.questionNumber))
+
+    const playersRaw = await ctx.db.query('players').collect()
+    const playersWithUrl = await Promise.all(
+      playersRaw.map(async (p) => ({
+        ...p,
+        photoUrl: p.photoStorageId ? await ctx.storage.getUrl(p.photoStorageId) : null,
+      })),
+    )
+    const playerMap = Object.fromEntries(playersWithUrl.map((p) => [p._id, p]))
+
+    return filtered.map((a) => ({ ...a, player: playerMap[a.playerId] }))
   },
 })
 

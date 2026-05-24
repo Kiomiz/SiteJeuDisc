@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
+import { Id } from '@/convex/_generated/dataModel'
 import Link from 'next/link'
 
 const PHASE_LABEL: Record<string, string> = {
@@ -15,12 +16,25 @@ const PHASE_LABEL: Record<string, string> = {
 export default function AdminPage() {
   const weeks = useQuery(api.weeks.list)
   const createWeek = useMutation(api.weeks.create)
+  const deleteWeek = useMutation(api.weeks.deleteWeek)
 
   const [weekNumber, setWeekNumber] = useState('')
   const [title, setTitle] = useState('')
   const [gameType, setGameType] = useState('Quiz')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDelete(weekId: string) {
+    setDeleting(true)
+    try {
+      await deleteWeek({ weekId: weekId as Id<'weeks'> })
+      setConfirmDeleteId(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -118,12 +132,39 @@ export default function AdminPage() {
                         {PHASE_LABEL[phase] ?? phase} · {week.gameType}
                       </p>
                     </div>
-                    <Link
-                      href={`/admin/week/${week._id}`}
-                      className="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition-colors"
-                    >
-                      Gérer →
-                    </Link>
+                    {confirmDeleteId === week._id ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition-colors"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          onClick={() => handleDelete(week._id)}
+                          disabled={deleting}
+                          className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+                        >
+                          {deleting ? '…' : 'Confirmer'}
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <Link
+                          href={`/admin/week/${week._id}`}
+                          className="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition-colors"
+                        >
+                          Gérer →
+                        </Link>
+                        <button
+                          onClick={() => setConfirmDeleteId(week._id)}
+                          className="px-2 py-1.5 rounded-lg bg-gray-800 hover:bg-red-900/40 text-gray-400 hover:text-red-400 text-sm transition-colors"
+                          title="Supprimer"
+                        >
+                          🗑️
+                        </button>
+                      </>
+                    )}
                   </div>
                 )
               })}

@@ -43,10 +43,14 @@ export function PlayerGrid({ selectedPlayerId, onSelect, onCreateNew }: Props) {
             }`}
           >
             <div
-              className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+              className="w-12 h-12 rounded-full flex items-center justify-center text-2xl overflow-hidden"
               style={{ backgroundColor: player.color }}
             >
-              {player.avatar}
+              {player.photoUrl ? (
+                <img src={player.photoUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                player.avatar
+              )}
             </div>
             <span className="text-xs font-medium text-white truncate w-full text-center">
               {player.pseudo}

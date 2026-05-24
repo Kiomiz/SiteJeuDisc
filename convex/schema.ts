@@ -28,6 +28,7 @@ export default defineSchema({
     currentQuestionIndex: v.optional(v.number()),
     shuffledOrder: v.optional(v.array(v.number())),
     correctionFromIndex: v.optional(v.number()),
+    hostPlayerId: v.optional(v.id('players')),
   }).index('by_weekNumber', ['weekNumber']),
 
   questions: defineTable({
@@ -46,6 +47,7 @@ export default defineSchema({
     questionNumber: v.number(),
     text: v.string(),
     points: v.optional(v.number()),
+    confirmed: v.optional(v.boolean()),
   })
     .index('by_player', ['playerId'])
     .index('by_week', ['weekId'])

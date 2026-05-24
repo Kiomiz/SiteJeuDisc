@@ -23,6 +23,12 @@ export default function HostPage({ params }: { params: Promise<{ weekId: string 
 
   const [confirmEnd, setConfirmEnd] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [hostPlayerId, setHostPlayerId] = useState<Id<'players'> | null>(null)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('quiznight_player_id')
+    if (saved) setHostPlayerId(saved as Id<'players'>)
+  }, [])
 
   const week = useQuery(api.weeks.get, { weekId: docId })
   const questions = useQuery(api.questions.listByWeek, { weekId: docId })
@@ -42,6 +48,13 @@ export default function HostPage({ params }: { params: Promise<{ weekId: string 
   const doStartCorrection = useMutation(api.weeks.startCorrection)
   const doFinishGame = useMutation(api.weeks.finishGame)
   const doStartGame = useMutation(api.weeks.startGame)
+  const doSetHost = useMutation(api.weeks.setHost)
+
+  useEffect(() => {
+    if (!hostPlayerId || !week) return
+    if (week.hostPlayerId === hostPlayerId) return
+    doSetHost({ weekId: docId, playerId: hostPlayerId }).catch(() => {})
+  }, [hostPlayerId, week?.hostPlayerId, docId, doSetHost])
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true)
@@ -71,11 +84,15 @@ export default function HostPage({ params }: { params: Promise<{ weekId: string 
   const isLastQuestion = questionIndex + 1 >= totalQuestions
   const isCorrectionDue = (questionIndex + 1) % CORRECTION_INTERVAL === 0
 
-  const answeredIds = new Set(answers?.map((a) => a.playerId) ?? [])
-  const notAnswered = players.filter((p) => !answeredIds.has(p._id))
+  const hostId = week?.hostPlayerId ?? hostPlayerId
+  const gamePlayers = players.filter((p) => p._id !== hostId)
+  const gameAnswers = answers?.filter((a) => a.playerId !== hostId)
+
+  const answeredIds = new Set(gameAnswers?.map((a) => a.playerId) ?? [])
+  const notAnswered = gamePlayers.filter((p) => !answeredIds.has(p._id))
 
   const scoreMap = Object.fromEntries((weekScores ?? []).map((s) => [s.playerId, s.points]))
-  const rankedPlayers = [...players]
+  const rankedPlayers = [...gamePlayers]
     .map((p) => ({ player: p, points: scoreMap[p._id] ?? 0 }))
     .sort((a, b) => b.points - a.points)
 
@@ -161,20 +178,20 @@ export default function HostPage({ params }: { params: Promise<{ weekId: string 
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Réponses</h3>
               <span className={`text-sm font-bold px-2 py-0.5 rounded-full ${
-                answers?.length === players.length ? 'bg-green-900/40 text-green-400' : 'bg-gray-800 text-gray-300'
+                (gameAnswers?.length ?? 0) === gamePlayers.length ? 'bg-green-900/40 text-green-400' : 'bg-gray-800 text-gray-300'
               }`}>
-                {answers?.length ?? 0} / {players.length}
+                {gameAnswers?.length ?? 0} / {gamePlayers.length}
               </span>
             </div>
 
             {answers === undefined ? (
               <div className="h-10 rounded-lg bg-gray-800 animate-pulse" />
-            ) : answers.length === 0 ? (
+            ) : (gameAnswers?.length ?? 0) === 0 ? (
               <p className="text-gray-600 text-sm italic">Aucune réponse encore…</p>
             ) : (
               <div className="flex flex-col gap-2">
                 <AnimatePresence>
-                  {answers.map((a) => (
+                  {gameAnswers!.map((a) => (
                     <motion.div
                       key={a._id}
                       initial={{ opacity: 0, x: -20, scale: 0.96 }}
@@ -182,8 +199,10 @@ export default function HostPage({ params }: { params: Promise<{ weekId: string 
                       transition={{ duration: 0.22, ease: 'easeOut' }}
                       className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-700 bg-gray-800/40"
                     >
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0" style={{ backgroundColor: a.player?.color ?? '#6b7280' }}>
-                        {a.player?.avatar ?? '?'}
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-base overflow-hidden shrink-0" style={{ backgroundColor: a.player?.color ?? '#6b7280' }}>
+                        {a.player?.photoUrl
+                          ? <img src={a.player.photoUrl} alt="" className="w-full h-full object-cover" />
+                          : (a.player?.avatar ?? '?')}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-gray-500">{a.player?.pseudo ?? '…'}</p>
@@ -199,8 +218,10 @@ export default function HostPage({ params }: { params: Promise<{ weekId: string 
               <div className="mt-4 flex flex-wrap gap-2">
                 {notAnswered.map((p) => (
                   <div key={p._id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gray-800/60 border border-gray-700 opacity-50">
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0" style={{ backgroundColor: p.color }}>
-                      {p.avatar}
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs overflow-hidden shrink-0" style={{ backgroundColor: p.color }}>
+                      {p.photoUrl
+                        ? <img src={p.photoUrl} alt="" className="w-full h-full object-cover" />
+                        : p.avatar}
                     </div>
                     <span className="text-xs text-gray-400">{p.pseudo}</span>
                   </div>
@@ -326,7 +347,7 @@ function CorrectionView({
     setSaving(true)
     setError('')
     try {
-      await doAttributePoints({ answerId: currentAnswer._id, points: parseInt(pts) || 0 })
+      await doAttributePoints({ answerId: currentAnswer._id, points: parseFloat(pts) || 0 })
       advance()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur')
@@ -435,10 +456,12 @@ function CorrectionView({
           <div className="p-5 rounded-2xl border border-yellow-700/60 bg-yellow-900/10">
             <div className="flex items-center gap-3 mb-4">
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-xl overflow-hidden shrink-0"
                 style={{ backgroundColor: currentAnswer.player?.color ?? '#6b7280' }}
               >
-                {currentAnswer.player?.avatar ?? '?'}
+                {currentAnswer.player?.photoUrl
+                  ? <img src={currentAnswer.player.photoUrl} alt="" className="w-full h-full object-cover" />
+                  : (currentAnswer.player?.avatar ?? '?')}
               </div>
               <p className="font-bold text-white text-lg">{currentAnswer.player?.pseudo ?? '?'}</p>
               {currentAnswer.points !== undefined && (
@@ -453,7 +476,7 @@ function CorrectionView({
           {/* Points buttons + input */}
           <div className="flex flex-col gap-3">
             <div className="flex gap-2">
-              {[0, 1, 2, 3].map((p) => (
+              {[0, 0.5, 1, 2, 3].map((p) => (
                 <button
                   key={p}
                   onClick={() => setPts(String(p))}
@@ -463,7 +486,7 @@ function CorrectionView({
                       : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                   }`}
                 >
-                  {p} pt{p !== 1 ? 's' : ''}
+                  {p}
                 </button>
               ))}
               <input
@@ -471,6 +494,7 @@ function CorrectionView({
                 value={pts}
                 onChange={(e) => setPts(e.target.value)}
                 min={0}
+                step={0.5}
                 className="w-16 px-2 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white text-sm text-center focus:outline-none focus:border-violet-500"
               />
             </div>
@@ -516,8 +540,10 @@ function ScorePanel({ rankedPlayers }: { rankedPlayers: RankedPlayer[] }) {
           className="flex items-center gap-3 px-3 py-2 rounded-xl border border-gray-700 bg-gray-800/40"
         >
           <span className="text-xs text-gray-500 w-5 text-center shrink-0">#{i + 1}</span>
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0" style={{ backgroundColor: player.color }}>
-            {player.avatar}
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm overflow-hidden shrink-0" style={{ backgroundColor: player.color }}>
+            {player.photoUrl
+              ? <img src={player.photoUrl} alt="" className="w-full h-full object-cover" />
+              : player.avatar}
           </div>
           <span className="flex-1 text-sm text-white font-medium truncate">{player.pseudo}</span>
           <span className="text-sm font-black text-violet-300 shrink-0">{points} pts</span>
