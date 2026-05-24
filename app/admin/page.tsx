@@ -25,12 +25,16 @@ export default function AdminPage() {
   const [error, setError] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   async function handleDelete(weekId: string) {
     setDeleting(true)
+    setDeleteError('')
     try {
       await deleteWeek({ weekId: weekId as Id<'weeks'> })
       setConfirmDeleteId(null)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally {
       setDeleting(false)
     }
@@ -133,20 +137,25 @@ export default function AdminPage() {
                       </p>
                     </div>
                     {confirmDeleteId === week._id ? (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition-colors"
-                        >
-                          Annuler
-                        </button>
-                        <button
-                          onClick={() => handleDelete(week._id)}
-                          disabled={deleting}
-                          className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
-                        >
-                          {deleting ? '…' : 'Confirmer'}
-                        </button>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setConfirmDeleteId(null); setDeleteError('') }}
+                            className="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition-colors"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            onClick={() => handleDelete(week._id)}
+                            disabled={deleting}
+                            className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+                          >
+                            {deleting ? '…' : 'Confirmer'}
+                          </button>
+                        </div>
+                        {deleteError && (
+                          <p className="text-red-400 text-xs max-w-xs text-right">{deleteError}</p>
+                        )}
                       </div>
                     ) : (
                       <>
