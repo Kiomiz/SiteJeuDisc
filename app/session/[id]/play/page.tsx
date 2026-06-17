@@ -37,6 +37,7 @@ export default function SessionPlayPage({ params }: { params: Promise<{ id: stri
   const session = useQuery(api.sessions.get, { sessionId })
   const player = useQuery(api.players.get, playerId ? { playerId } : 'skip')
   const join = useMutation(api.sessions.join)
+  const flagAway = useMutation(api.sessions.flagAway)
 
   // auto-join une fois identifié
   useEffect(() => {
@@ -44,6 +45,19 @@ export default function SessionPlayPage({ params }: { params: Promise<{ id: stri
     const already = session.players.some((p) => p._id === playerId)
     if (!already) join({ sessionId, playerId }).catch(() => {})
   }, [playerId, session?.players.length, sessionId, join])
+
+  // anti-triche : signale quand le joueur quitte l'onglet pendant une manche
+  const phase = session?.phase
+  useEffect(() => {
+    if (!playerId || phase !== 'playing') return
+    function onHide() {
+      if (document.visibilityState === 'hidden') {
+        flagAway({ sessionId, playerId: playerId! }).catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', onHide)
+    return () => document.removeEventListener('visibilitychange', onHide)
+  }, [playerId, phase, sessionId, flagAway])
 
   if (session === undefined) {
     return <main className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" /></main>

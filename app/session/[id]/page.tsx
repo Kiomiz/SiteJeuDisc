@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
@@ -11,6 +11,24 @@ import { JustePrixHost } from '../games/JustePrix'
 import { BluffHost } from '../games/Bluff'
 import { MostLikelyHost } from '../games/MostLikely'
 import { FamilyFeudHost } from '../games/FamilyFeud'
+
+function beep() {
+  try {
+    const ctx = new AudioContext()
+    const o = ctx.createOscillator()
+    const g = ctx.createGain()
+    o.connect(g)
+    g.connect(ctx.destination)
+    o.type = 'square'
+    o.frequency.value = 760
+    g.gain.setValueAtTime(0.12, ctx.currentTime)
+    o.start()
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25)
+    o.stop(ctx.currentTime + 0.26)
+  } catch {
+    /* AudioContext indisponible : on ignore */
+  }
+}
 
 const GAME_LABELS: Record<string, string> = {
   petitbac: '🔤 Petit Bac',
@@ -43,6 +61,14 @@ export default function SessionHostPage({ params }: { params: Promise<{ id: stri
   const reset = useMutation(api.sessions.reset)
   const [confirmReset, setConfirmReset] = useState(false)
 
+  // bip quand un compteur de sortie d'onglet augmente
+  const totalAway = session ? session.players.reduce((s, p) => s + (p.awayCount ?? 0), 0) : 0
+  const prevAwayRef = useRef(0)
+  useEffect(() => {
+    if (totalAway > prevAwayRef.current) beep()
+    prevAwayRef.current = totalAway
+  }, [totalAway])
+
   if (session === undefined) {
     return <main className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" /></main>
   }
@@ -53,6 +79,7 @@ export default function SessionHostPage({ params }: { params: Promise<{ id: stri
   const players = session.players as PlayerLite[]
   const ranked = [...players].map((p) => ({ p, pts: session.scores[p._id] ?? 0 })).sort((a, b) => b.pts - a.pts)
   const gamePlayers = players
+  const flaggedPlayers = session.players.filter((p) => (p.awayCount ?? 0) > 0)
 
   return (
     <main className="min-h-screen bg-gray-950">
@@ -73,6 +100,27 @@ export default function SessionHostPage({ params }: { params: Promise<{ id: stri
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-6">
+        {/* ── Alerte anti-triche ── */}
+        {flaggedPlayers.length > 0 && (
+          <div className="mb-4 p-3 rounded-xl border border-red-700/60 bg-red-900/20 flex flex-col gap-1.5">
+            <p className="text-xs font-bold text-red-300 uppercase tracking-wider">⚠️ Sorties d&apos;onglet détectées</p>
+            <div className="flex flex-wrap gap-2">
+              {flaggedPlayers
+                .slice()
+                .sort((a, b) => (b.lastAwayAt ?? 0) - (a.lastAwayAt ?? 0))
+                .map((p) => {
+                  const recent = Date.now() - (p.lastAwayAt ?? 0) < 6000
+                  return (
+                    <span key={p._id} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs ${recent ? 'bg-red-700/50 text-red-100 animate-pulse' : 'bg-gray-800 text-gray-300'}`}>
+                      <Avatar p={p} size={16} />
+                      {p.pseudo} <b>×{p.awayCount}</b>{recent ? ' • à l’instant' : ''}
+                    </span>
+                  )
+                })}
+            </div>
+          </div>
+        )}
+
         {/* ── LOBBY ── */}
         {session.phase === 'lobby' && (
           <div className="flex flex-col gap-6">
