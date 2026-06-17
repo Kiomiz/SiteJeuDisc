@@ -9,9 +9,16 @@
  */
 
 import type * as answers from "../answers.js";
+import type * as bluff from "../bluff.js";
+import type * as familyfeud from "../familyfeud.js";
+import type * as games from "../games.js";
+import type * as justeprix from "../justeprix.js";
+import type * as mostlikely from "../mostlikely.js";
+import type * as petitbac from "../petitbac.js";
 import type * as players from "../players.js";
 import type * as questions from "../questions.js";
 import type * as scores from "../scores.js";
+import type * as sessions from "../sessions.js";
 import type * as weeks from "../weeks.js";
 
 import type {
@@ -22,9 +29,16 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   answers: typeof answers;
+  bluff: typeof bluff;
+  familyfeud: typeof familyfeud;
+  games: typeof games;
+  justeprix: typeof justeprix;
+  mostlikely: typeof mostlikely;
+  petitbac: typeof petitbac;
   players: typeof players;
   questions: typeof questions;
   scores: typeof scores;
+  sessions: typeof sessions;
   weeks: typeof weeks;
 }>;
 
